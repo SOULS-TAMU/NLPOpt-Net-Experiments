@@ -1,0 +1,139 @@
+Metadata-Version: 2.4
+Name: nlpopt
+Version: 0.1.0
+Summary: A low-level JAX modeling environment for parametric nonlinear optimization
+Author-email: Bimol Nath Roy <bimolnathroy@tamu.edu>
+License: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: jax>=0.4.28
+Requires-Dist: jaxlib>=0.4.28
+Requires-Dist: numpy>=1.24
+Requires-Dist: cvxpy>=1.4
+Requires-Dist: flax>=0.8
+Requires-Dist: optax>=0.2
+Dynamic: license-file
+
+# jxm (`jaxmodel`)
+
+`jxm` provides a modular, JAX-native modeling environment for parameterized nonlinear optimization problems.
+
+## Design goals
+
+- Unified API for objective + differentiable constraints.
+- Parametric problem definition: same structure, different parameter instances.
+- Compatible with neural network pipelines (e.g., differentiable projection layers).
+- JIT-friendly evaluation for repeated instance solves.
+- User-friendly modeling style inspired by Pyomo/GAMS (but JAX-first).
+
+## Installation
+
+```bash
+pip install -e .
+```
+
+## Quick start (high-level API, recommended)
+
+```python
+import jax
+import jax.numpy as jnp
+
+from jaxmodel import (
+    HighLevelNLPBuilder,
+)
+
+jax.config.update("jax_enable_x64", True)
+
+n, p = 10, 2
+Q = jnp.eye(n)
+c = jnp.ones((n,))
+A = jnp.ones((3, n))
+b = jnp.zeros((3,))
+D = jnp.ones((3, p))
+C = -jnp.eye(n)[:2]
+d = jnp.zeros((2,))
+E = jnp.zeros((2, p))
+L = jnp.zeros((n, p))
+l = -jnp.ones((n,))
+U = jnp.zeros((n, p))
+u = 2.0 * jnp.ones((n,))
+
+params = {"x": jnp.array([0.2, -0.1])}
+
+model = (
+    HighLevelNLPBuilder()
+    .add_variable("y", n)
+    .add_parameter("x", p)
+    .set_quadratic_objective(Q=Q, c=c)
+    .add_affine_equality(var_name="y", A=A, rhs_const=b, param_terms=[(D, "x")])
+    .add_affine_inequality(var_name="y", C=C, rhs_const=d, param_terms=[(E, "x")])
+    .add_nonlinear_inequality(lambda p, v: jnp.array([jnp.sum(jnp.exp(0.1 * v["y"])) - 8.0]))
+    .set_affine_lower_bound(var_name="y", param_name="x", M=L, c=l)
+    .set_affine_upper_bound(var_name="y", param_name="x", M=U, c=u)
+    .build(example_params=params, jit_compile=True)
+)
+
+y0 = 0.5 * (model.lower_bounds(params) + model.upper_bounds(params))
+sp = model.sqp_subproblem_data(params, y0, rho=1.0, use_diagonal_hessian=True)
+```
+
+See a full runnable high-level example: `example_highlevel_user.py`.
+
+## Low-level API
+
+If you need full control, the original low-level API is unchanged:
+- `VariableBuilder`
+- `NLPBuilder`
+- block/scalar constraint builders
+- explicit custom objective/constraint functions
+
+## Local approximations for SQP / projection layers
+
+The library exposes both legacy dict outputs and typed outputs.
+
+```python
+# Linearized constraints: A y = b, C y <= d at (params_k, y_k)
+lin = model.linearization_data(params, y0)
+
+# Quadratic approximation:
+#   0.5 y^T Q y + c^T y
+# where Q uses either full Hessian or diagonal Hessian scaled by rho
+quad = model.quadratic_objective_data(
+    params,
+    y0,
+    rho=1.0,
+    use_diagonal_hessian=True,
+    diag_floor=1e-6,
+)
+
+# Combined subproblem data
+sqp = model.sqp_subproblem_data(
+    params,
+    y0,
+    rho=1.0,
+    use_diagonal_hessian=True,
+    diag_floor=1e-6,
+)
+```
+
+Typed returns:
+
+- `LinearizationData(A, b, C, d, h_val, g_val)`
+- `QuadraticObjectiveData(grad_f, Q, Q_diag, c)`
+- `SQPSubproblemData(objective, constraints, l, u)`
+
+## Modeling API overview
+
+- `HighLevelNLPBuilder`: easiest entry point for most users.
+- `VariableBuilder`: build structured decision variables and flat packed vectors.
+- `ParameterSpec`: freeze and validate parameter schema.
+- `NLPBuilder`: user-friendly model assembly.
+- `JaxNLPModel`: compiled model object for objective/constraints/Jacobians/Hessians.
+- `blocks.py`: convenience builders for affine/nonlinear block constraints.
+
+## Notes on JIT and speed
+
+- Keep variable and parameter shapes fixed across instances.
+- Reuse the same `JaxNLPModel` object and change only `params`/`y`.
+- Prefer `jit_compile=True` for repeated calls in training loops.

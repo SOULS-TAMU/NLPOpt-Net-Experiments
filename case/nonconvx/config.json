@@ -1,0 +1,20 @@
+{
+  "model": "dc3",
+  "run_multiple_seed": true,
+  "num_seeds": 5,
+  "batch_size": 400,
+  "epochs": 2000,
+  "print_every": 500,
+  "learning_rate": 0.001,
+  "alpha_consistency": 10.0,
+  "train_frac": 0.8,
+  "val_frac": 0.2,
+  "hidden_size": 128,
+  "hidden_dim": 3,
+  "cp_iters": 500,
+  "cp_tol": 1e-09,
+  "seed": 42,
+  "dtype": "float64",
+  "device": "auto",
+  "jit_warmup": true
+}

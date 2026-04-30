@@ -1,0 +1,18 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+jax==0.4.30
+jaxlib==0.4.30
+flax==0.8.5
+optax
+numpy
+scipy
+cython
+pandas
+cvxpy
+matplotlib
+osqp
+torch==2.8.0+cpu
+qpth
+pypower
+setproctitle
+gurobipy==12.0.3
