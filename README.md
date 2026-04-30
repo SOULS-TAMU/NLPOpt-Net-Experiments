@@ -1,10 +1,5 @@
-<<<<<<< HEAD
 # NLPOpt-Net-Experiments
-This is the repository for the experiments shown in the Article for NLPOpt-Net framework.
-=======
-# NLPOpt-Net Experiment Repository
-
-This repository includes the codes and instruction to run the experiments provided in the article to reproduce the results.
+This repository includes the code and instructions to run the experiments provided in the article to reproduce the results.
 
 The main repository includes the notebook to reproduce the result for Table 01.
 
@@ -74,4 +69,3 @@ For the active set agreement, the value is saved in all runs in the `summary.jso
   year={2026}
   }
 ```
->>>>>>> 0e1ed0f (first commit)
